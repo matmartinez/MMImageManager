@@ -761,6 +761,33 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
     });
 }
 
+- (NSUInteger)currentDiskUsage
+{
+    NSArray *resourceKeys = @[ NSURLTotalFileAllocatedSizeKey, NSURLIsDirectoryKey ];
+    
+    NSURL *workingFileURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
+    NSDirectoryEnumerator *directoryEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:workingFileURL includingPropertiesForKeys:resourceKeys options:0 errorHandler:NULL];
+    
+    NSUInteger currentCacheSize = 0;
+    
+    for (NSURL *fileURL in directoryEnumerator) {
+        NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
+        NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
+        
+        // Skip directories.
+        if ([resourceValues[NSURLIsDirectoryKey] boolValue]) {
+            continue;
+        }
+        
+        // Add up the size.
+        if (totalAllocatedSize) {
+            currentCacheSize += [totalAllocatedSize unsignedIntegerValue];
+        }
+    }
+    
+    return currentCacheSize;
+}
+
 #pragma mark - Expiration.
 
 static NSString * MMExpirationExtendedAttribute = @"expires";
