@@ -796,22 +796,27 @@ static NSString * MMExpirationExtendedAttribute = @"expires";
     const char *filePath = [path fileSystemRepresentation];
     const char *name = [MMImageManagerDomain stringByAppendingPathExtension:MMExpirationExtendedAttribute].UTF8String;
     
-    // get size of needed buffer
-    size_t bufferLength = getxattr(filePath, name, NULL, 0, 0, 0);
+    void *valueBuffer = NULL;
+    ssize_t length = getxattr(filePath, name, NULL, SIZE_MAX, 0, 0);
+    if (length != -1) {
+        valueBuffer = calloc(1, length);
+        length = getxattr(filePath, name, valueBuffer, length, 0, 0);
+    }
     
-    // make a buffer of sufficient length
-    char *buffer = malloc(bufferLength);
+    NSString *value = nil;
+    if (length == -1) {
+        if (valueBuffer) {
+            free(valueBuffer);
+            valueBuffer = NULL;
+        }
+    } else {
+        value = [[NSString alloc] initWithBytesNoCopy:valueBuffer length:length encoding:NSUTF8StringEncoding freeWhenDone:YES];
+    }
     
-    // now actually get the attribute string
-    getxattr(filePath, name, buffer, 255, 0, 0);
-    
-    // convert to NSString
-    NSString *value = [[NSString alloc] initWithBytes:buffer length:bufferLength encoding:NSUTF8StringEncoding];
-    
-    // release buffer
-    free(buffer);
-    
-    return [NSDate dateWithTimeIntervalSince1970:[value integerValue]];
+    if (value) {
+        return [NSDate dateWithTimeIntervalSince1970:[value integerValue]];
+    }
+    return nil;
 }
 
 @end
