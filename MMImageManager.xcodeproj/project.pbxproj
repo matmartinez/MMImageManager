@@ -15,6 +15,7 @@
 		0943CD1F1A978CCB00F8B08A /* MMImageFormat.m in Sources */ = {isa = PBXBuildFile; fileRef = 0943CD191A978CCB00F8B08A /* MMImageFormat.m */; };
 		0943CD201A978CCB00F8B08A /* MMImageManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 0943CD1B1A978CCB00F8B08A /* MMImageManager.m */; };
 		0943CD211A978CCB00F8B08A /* MMImageRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */; };
+		095BAB681A97A07E000311FB /* UIImageView+MMImageRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +47,8 @@
 		0943CD1C1A978CCB00F8B08A /* MMImageManagerItem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MMImageManagerItem.h; path = Classes/MMImageManagerItem.h; sourceTree = SOURCE_ROOT; };
 		0943CD1D1A978CCB00F8B08A /* MMImageRequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MMImageRequest.h; path = Classes/MMImageRequest.h; sourceTree = SOURCE_ROOT; };
 		0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MMImageRequest.m; path = Classes/MMImageRequest.m; sourceTree = SOURCE_ROOT; };
+		095BAB661A97A07E000311FB /* UIImageView+MMImageRequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "UIImageView+MMImageRequest.h"; path = "Classes/UIImageView+MMImageRequest.h"; sourceTree = SOURCE_ROOT; };
+		095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIImageView+MMImageRequest.m"; path = "Classes/UIImageView+MMImageRequest.m"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +137,8 @@
 				0943CD191A978CCB00F8B08A /* MMImageFormat.m */,
 				0943CD1D1A978CCB00F8B08A /* MMImageRequest.h */,
 				0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */,
+				095BAB661A97A07E000311FB /* UIImageView+MMImageRequest.h */,
+				095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */,
 			);
 			name = Classes;
 			path = MMImageManager;
@@ -242,6 +247,7 @@
 				0943CCFA1A978C1900F8B08A /* ViewController.m in Sources */,
 				0943CCF71A978C1900F8B08A /* AppDelegate.m in Sources */,
 				0943CD201A978CCB00F8B08A /* MMImageManager.m in Sources */,
+				095BAB681A97A07E000311FB /* UIImageView+MMImageRequest.m in Sources */,
 				0943CCF41A978C1900F8B08A /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
