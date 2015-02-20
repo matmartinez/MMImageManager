@@ -10,7 +10,7 @@
 
 typedef void (^MMImageRequestResultHandler)(UIImage *image, NSDictionary *info);
 
-@interface MMImageRequest : NSObject <NSCopying>
+@interface MMImageRequest : NSObject
 
 + (instancetype)requestForItem:(id <MMImageManagerItem>)item targetSize:(CGSize)targetSize resultHandler:(MMImageRequestResultHandler)resultHandler;
 

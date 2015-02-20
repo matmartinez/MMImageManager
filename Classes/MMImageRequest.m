@@ -36,16 +36,9 @@
     return request;
 }
 
-- (id)copyWithZone:(NSZone *)zone
+- (NSString *)description
 {
-    MMImageRequest *request = [super copy];
-    request->_item = self.item;
-    request->_targetSize = self.targetSize;
-    request->_resultHandler = [self.resultHandler copy];
-//    request->_synchronous = self.isSynchronous;
-    request->_opportunistic = self.isOportunistic;
-    
-    return request;
+    return [NSString stringWithFormat:@"<%@: %p, item: %@, targetSize: %@, opportunistic: %@>", NSStringFromClass([self class]), self, self.item, NSStringFromCGSize(self.targetSize), @(self.isOportunistic)];
 }
 
 @end
