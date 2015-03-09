@@ -36,7 +36,7 @@ extern CGSize const MMImageManagerMaximumSize;
 
 @property (readonly, copy, nonatomic) NSString *name;
 
-@property (weak, nonatomic) id <MMImageManagerImageSource> imageSource;
+@property (strong, nonatomic) id <MMImageManagerImageSource> imageSource;
 
 - (void)addRequest:(MMImageRequest *)request;
 - (void)cancelRequest:(MMImageRequest *)request;
