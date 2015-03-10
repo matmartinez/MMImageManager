@@ -158,9 +158,12 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         
         if (image) {
             // Deliver update.
-            dispatch_async(dispatch_get_main_queue(), ^{
-                request.resultHandler(image, nil);
-            });
+            MMImageRequestResultHandler resultHandler = request.resultHandler;
+            if (resultHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    resultHandler(image, nil);
+                });
+            }
             
             // Don't return if opportunistic or image is expired. We need to do the request.
             if (!opportunisticCacheReplacement && !info.expired) {
@@ -218,14 +221,17 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
                 [self _cacheImage:image imageFormat:diskImageFormat forItem:item relativePath:diskRelativePath];
                 
                 // Check if this item is now expired. We want to also update the cache info
-                // in case the manager is hit with more request for this expired item.
+                // in case the manager is hit with another request for this very expired item.
                 BOOL expires = [self _imageExpiredAtRelativePath:relativePath];
                 [[self _cacheObjectInfoForItem:item] setExpired:expires];
                 
                 // Deliver update.
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    request.resultHandler(image, nil);
-                });
+                MMImageRequestResultHandler resultHandler = request.resultHandler;
+                if (resultHandler) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        resultHandler(image, nil);
+                    });
+                }
                 
                 // Don't return if opportunistic or image is expired. We need to do the request.
                 if (!opportunisticDiskReplacement && !expires) {
@@ -386,7 +392,10 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         if (matchingRequests.count > 0) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 for (MMImageRequest *imageRequest in matchingRequests) {
-                    imageRequest.resultHandler(image, nil);
+                    MMImageRequestResultHandler resultHandler = imageRequest.resultHandler;
+                    if (resultHandler) {
+                        resultHandler(image, nil);
+                    }
                 }
             });
         }
