@@ -464,12 +464,14 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         return;
     }
     
-    for (id <MMImageManagerItem> item in items) {
-        MMImageRequest *preheatImageRequest = [MMImageRequest requestForItem:item targetSize:targetSize resultHandler:NULL];
-        
-        [self.preheatImageRequestArray addObject:preheatImageRequest];
-        [self addRequest:preheatImageRequest];
-    }
+    dispatch_async(self.queue, ^{
+        for (id <MMImageManagerItem> item in items) {
+            MMImageRequest *preheatImageRequest = [MMImageRequest requestForItem:item targetSize:targetSize resultHandler:NULL];
+            
+            [self.preheatImageRequestArray addObject:preheatImageRequest];
+            [self addRequest:preheatImageRequest];
+        }
+    });
 }
 
 - (void)stopCachingImagesForItems:(NSArray *)items targetSize:(CGSize)targetSize
