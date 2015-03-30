@@ -16,6 +16,7 @@
 		0943CD201A978CCB00F8B08A /* MMImageManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 0943CD1B1A978CCB00F8B08A /* MMImageManager.m */; };
 		0943CD211A978CCB00F8B08A /* MMImageRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */; };
 		095BAB681A97A07E000311FB /* UIImageView+MMImageRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */; };
+		09917F891AC9ECED00B4F207 /* MMImageInflate.m in Sources */ = {isa = PBXBuildFile; fileRef = 09917F881AC9ECED00B4F207 /* MMImageInflate.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +50,8 @@
 		0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MMImageRequest.m; path = Classes/MMImageRequest.m; sourceTree = SOURCE_ROOT; };
 		095BAB661A97A07E000311FB /* UIImageView+MMImageRequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "UIImageView+MMImageRequest.h"; path = "Classes/UIImageView+MMImageRequest.h"; sourceTree = SOURCE_ROOT; };
 		095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIImageView+MMImageRequest.m"; path = "Classes/UIImageView+MMImageRequest.m"; sourceTree = SOURCE_ROOT; };
+		09917F871AC9ECED00B4F207 /* MMImageInflate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MMImageInflate.h; path = Classes/MMImageInflate.h; sourceTree = SOURCE_ROOT; };
+		09917F881AC9ECED00B4F207 /* MMImageInflate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MMImageInflate.m; path = Classes/MMImageInflate.m; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +140,8 @@
 				0943CD191A978CCB00F8B08A /* MMImageFormat.m */,
 				0943CD1D1A978CCB00F8B08A /* MMImageRequest.h */,
 				0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */,
+				09917F871AC9ECED00B4F207 /* MMImageInflate.h */,
+				09917F881AC9ECED00B4F207 /* MMImageInflate.m */,
 				095BAB661A97A07E000311FB /* UIImageView+MMImageRequest.h */,
 				095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */,
 			);
@@ -249,6 +254,7 @@
 				0943CD201A978CCB00F8B08A /* MMImageManager.m in Sources */,
 				095BAB681A97A07E000311FB /* UIImageView+MMImageRequest.m in Sources */,
 				0943CCF41A978C1900F8B08A /* main.m in Sources */,
+				09917F891AC9ECED00B4F207 /* MMImageInflate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
