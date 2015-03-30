@@ -522,9 +522,20 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
     NSData *data = [NSData dataWithContentsOfFile:path];
     
     CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
-    CGImageRef cgImage = CGImageSourceCreateImageAtIndex(source, 0, (__bridge CFDictionaryRef)@{(id)kCGImageSourceShouldCacheImmediately: @YES});
+    if (!source) {
+        return nil;
+    }
     
-    UIImage *image = [UIImage imageWithCGImage:cgImage];
+    CGImageRef imageFromSource = CGImageSourceCreateImageAtIndex(source, 0, (__bridge CFDictionaryRef)@{ (id)kCGImageSourceShouldCacheImmediately: @YES });
+    if (!imageFromSource) {
+        CFRelease(source);
+        return nil;
+    }
+    
+    UIImage *image = [UIImage imageWithCGImage:imageFromSource];
+    
+    CFRelease(source);
+    CGImageRelease(imageFromSource);
     
     return image;
 }
@@ -555,6 +566,8 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         
         CFRelease(imageProperties);
     }
+    
+    CFRelease(imageSource);
     
     return CGSizeMake(width, height);
 }
