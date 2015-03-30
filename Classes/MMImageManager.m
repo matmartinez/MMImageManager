@@ -17,6 +17,7 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 
 @property (copy, nonatomic, readwrite) NSString *name;
 @property (copy, nonatomic) NSString *workingPath;
+@property (assign, nonatomic) CGFloat imageScale;
 
 @property (strong, nonatomic) NSFileManager *fileManager;
 @property (strong, nonatomic) dispatch_queue_t queue;
@@ -77,6 +78,8 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         dispatch_sync(_queue, ^{
             _fileManager = [[NSFileManager alloc] init];
         });
+        
+        _imageScale = [UIScreen mainScreen].scale;
         
         _cache = [[NSCache alloc] init];
         _cache.name = label;
@@ -510,6 +513,85 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
 
 #pragma mark - Accesing disk for images.
 
+static UIImage *MMImageWithDataAtScale(NSData *data, CGFloat scale){
+    UIImage *image = [[UIImage alloc] initWithData:data];
+    if (image.images) {
+        return image;
+    }
+    return [[UIImage alloc] initWithCGImage:[image CGImage] scale:scale orientation:image.imageOrientation];
+};
+
+static UIImage *MMInflatedImageWithDataAtScale(NSData *data, CGFloat scale){
+    if (!data || [data length] == 0) {
+        return nil;
+    }
+    
+    CGImageRef imageRef = NULL;
+    
+    UIImage *image = MMImageWithDataAtScale(data, scale);
+    if (!imageRef) {
+        if (image.images || !image) {
+            return image;
+        }
+        
+        imageRef = CGImageCreateCopy([image CGImage]);
+        if (!imageRef) {
+            return nil;
+        }
+    }
+    
+    size_t width = CGImageGetWidth(imageRef);
+    size_t height = CGImageGetHeight(imageRef);
+    size_t bitsPerComponent = CGImageGetBitsPerComponent(imageRef);
+    
+    if (width * height > 1024 * 1024 || bitsPerComponent > 8) {
+        CGImageRelease(imageRef);
+        
+        return image;
+    }
+    
+    size_t bytesPerRow = 0;
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGColorSpaceModel colorSpaceModel = CGColorSpaceGetModel(colorSpace);
+    CGBitmapInfo bitmapInfo = CGImageGetBitmapInfo(imageRef);
+    
+    if (colorSpaceModel == kCGColorSpaceModelRGB) {
+        uint32_t alpha = (bitmapInfo & kCGBitmapAlphaInfoMask);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wassign-enum"
+        if (alpha == kCGImageAlphaNone) {
+            bitmapInfo &= ~kCGBitmapAlphaInfoMask;
+            bitmapInfo |= kCGImageAlphaNoneSkipFirst;
+        } else if (!(alpha == kCGImageAlphaNoneSkipFirst || alpha == kCGImageAlphaNoneSkipLast)) {
+            bitmapInfo &= ~kCGBitmapAlphaInfoMask;
+            bitmapInfo |= kCGImageAlphaPremultipliedFirst;
+        }
+#pragma clang diagnostic pop
+    }
+    
+    CGContextRef context = CGBitmapContextCreate(NULL, width, height, bitsPerComponent, bytesPerRow, colorSpace, bitmapInfo);
+    
+    CGColorSpaceRelease(colorSpace);
+    
+    if (!context) {
+        CGImageRelease(imageRef);
+        
+        return image;
+    }
+    
+    CGContextDrawImage(context, CGRectMake(0.0f, 0.0f, width, height), imageRef);
+    CGImageRef inflatedImageRef = CGBitmapContextCreateImage(context);
+    
+    CGContextRelease(context);
+    
+    UIImage *inflatedImage = [[UIImage alloc] initWithCGImage:inflatedImageRef scale:scale orientation:image.imageOrientation];
+    
+    CGImageRelease(inflatedImageRef);
+    CGImageRelease(imageRef);
+    
+    return inflatedImage;
+};
+
 - (UIImage *)_createImageFromDataAtRelativePath:(NSString *)relativePath
 {
     NSString *workingPath = self.workingPath;
@@ -520,22 +602,7 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
     }
     
     NSData *data = [NSData dataWithContentsOfFile:path];
-    
-    CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
-    if (!source) {
-        return nil;
-    }
-    
-    CGImageRef imageFromSource = CGImageSourceCreateImageAtIndex(source, 0, (__bridge CFDictionaryRef)@{ (id)kCGImageSourceShouldCacheImmediately: @YES });
-    if (!imageFromSource) {
-        CFRelease(source);
-        return nil;
-    }
-    
-    UIImage *image = [UIImage imageWithCGImage:imageFromSource];
-    
-    CFRelease(source);
-    CGImageRelease(imageFromSource);
+    UIImage *image = MMInflatedImageWithDataAtScale(data, self.imageScale);
     
     return image;
 }
