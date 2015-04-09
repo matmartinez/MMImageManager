@@ -291,20 +291,22 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         return;
     }
     
-    if ([self.pendingImageRequestArray containsObject:request]) {
-        [self.pendingImageRequestArray removeObject:request];
-        
-        MMImageFormat *format = [self appropiateImageFormatForTargetSize:request.targetSize];
-        [self.imageSource imageManager:self cancelRequestWithImageFormat:format forItem:request.item];
-        
-        MMImageRequestResultHandler resultHandler = request.resultHandler;
-        if (resultHandler) {
-            NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSUserCancelledError userInfo:nil];
-            NSDictionary *userInfo = @{ NSUnderlyingErrorKey : error };
+    dispatch_async(self.queue, ^{
+        if ([self.pendingImageRequestArray containsObject:request]) {
+            [self.pendingImageRequestArray removeObject:request];
             
-            resultHandler(nil, userInfo);
+            MMImageFormat *format = [self appropiateImageFormatForTargetSize:request.targetSize];
+            [self.imageSource imageManager:self cancelRequestWithImageFormat:format forItem:request.item];
+            
+            MMImageRequestResultHandler resultHandler = request.resultHandler;
+            if (resultHandler) {
+                NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSUserCancelledError userInfo:nil];
+                NSDictionary *userInfo = @{ NSUnderlyingErrorKey : error };
+                
+                resultHandler(nil, userInfo);
+            }
         }
-    }
+    });
 }
 
 - (void)cancelRequestsWithFormat:(MMImageFormat *)format forItem:(id <MMImageManagerItem>)item
@@ -313,24 +315,26 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         return;
     }
     
-    NSString *uniqueIdentifier = [item imageManagerUniqueIdentifier];
-    
-    for (MMImageRequest *imageRequest in self.pendingImageRequestArray) {
-        MMImageFormat *appropiateFormat = [self appropiateImageFormatForTargetSize:imageRequest.targetSize];
+    dispatch_async(self.queue, ^{
+        NSString *uniqueIdentifier = [item imageManagerUniqueIdentifier];
         
-        if ([[imageRequest.item imageManagerUniqueIdentifier] isEqualToString:uniqueIdentifier]) {
-            BOOL shouldCancel = NO;
-            if (!format) {
-                shouldCancel = YES;
-            } else {
-                shouldCancel = [appropiateFormat isEqual:format];
-            }
+        for (MMImageRequest *imageRequest in self.pendingImageRequestArray) {
+            MMImageFormat *appropiateFormat = [self appropiateImageFormatForTargetSize:imageRequest.targetSize];
             
-            if (shouldCancel) {
-                [self cancelRequest:imageRequest];
+            if ([[imageRequest.item imageManagerUniqueIdentifier] isEqualToString:uniqueIdentifier]) {
+                BOOL shouldCancel = NO;
+                if (!format) {
+                    shouldCancel = YES;
+                } else {
+                    shouldCancel = [appropiateFormat isEqual:format];
+                }
+                
+                if (shouldCancel) {
+                    [self cancelRequest:imageRequest];
+                }
             }
         }
-    }
+    });
 }
 
 - (MMImageFormat *)appropiateImageFormatForTargetSize:(CGSize)targetSize
