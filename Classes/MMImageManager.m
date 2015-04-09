@@ -205,7 +205,7 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
                     // If nothing was found, try to use closest size image.
                     CGSize size = [self _calculateImageSizeForImageAtRelativePath:otherRelativeDiskPath];
                     if (!CGSizeEqualToSize(size, CGSizeZero)) {
-                        CGFloat diff = abs((size.width * size.height) - (targetSize.width * targetSize.height));
+                        CGFloat diff = fabs((size.width * size.height) - (targetSize.width * targetSize.height));
                         if (diff < closestDiff) {
                             closestDiff = diff;
                             diskRelativePath = otherRelativeDiskPath;
@@ -625,7 +625,7 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
                 closestImageFormat = imageFormat;
             }
         } else {
-            CGFloat diff = abs((size.width * size.height) - (targetSize.width * targetSize.height));
+            CGFloat diff = fabs((size.width * size.height) - (targetSize.width * targetSize.height));
             if (diff < closestDiff) {
                 closestDiff = diff;
                 closestImageFormat = imageFormat;
