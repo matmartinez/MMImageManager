@@ -9,6 +9,7 @@
 #import "MMImageManager.h"
 
 typedef void (^MMImageRequestResultHandler)(UIImage *image, NSDictionary *info);
+typedef void (^MMImageDrawRect)(UIImage *, CGRect);
 
 @interface MMImageRequest : NSObject
 
@@ -19,6 +20,9 @@ typedef void (^MMImageRequestResultHandler)(UIImage *image, NSDictionary *info);
 
 @property (assign, nonatomic, getter = isSynchronous) BOOL synchronous NS_UNAVAILABLE;
 @property (assign, nonatomic, getter = isOportunistic) BOOL opportunistic;
+
+@property (copy, nonatomic) MMImageDrawRect drawRect;
+@property (assign, nonatomic) BOOL clearsContextBeforeDrawing;
 
 @property (copy, nonatomic) MMImageRequestResultHandler resultHandler;
 

@@ -26,6 +26,8 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 @property (strong, nonatomic) NSCache *cache;
 @property (strong, nonatomic) NSMutableDictionary *cacheInfo;
 
+@property (strong, nonatomic) NSCache *contextCache;
+
 @property (strong, nonatomic) NSMutableArray *pendingImageRequestArray;
 @property (strong, nonatomic) NSMutableArray *preheatImageRequestArray;
 
@@ -42,6 +44,13 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 
 @end
 
+@interface _MMDrawingContext : NSObject
+
+@property (weak, nonatomic) dispatch_queue_t queue;
+@property (assign, nonatomic) CGContextRef context;
+
+@end
+
 @implementation _MMImageCacheObjectInfo
 
 - (instancetype)init
@@ -55,9 +64,43 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 
 @end
 
+@implementation _MMDrawingContext
+
+- (void)dealloc
+{
+    CGContextRef ctx = _context;
+    if (ctx != NULL) {
+        dispatch_async(_queue, ^{
+            CGContextRelease(ctx);
+        });
+    }
+    _context = nil;
+}
+
+@end
+
 @implementation MMImageManager
 
 static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
+
+NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
+    CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image.CGImage);
+    BOOL hasAlpha = !(alpha == kCGImageAlphaNone || alpha == kCGImageAlphaNoneSkipFirst || alpha == kCGImageAlphaNoneSkipLast);
+    
+    return hasAlpha;
+};
+
+NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
+    size_t width = size.width;
+    size_t height = size.height;
+    size_t bitsPerComponent = 8;
+    size_t bytesPerRow = 4 * width;
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGBitmapInfo bitmapInfo = kCGBitmapByteOrder32Host | (opaque ? kCGImageAlphaNoneSkipFirst : kCGImageAlphaPremultipliedFirst);
+    CGContextRef ctx = CGBitmapContextCreate(NULL, width, height, bitsPerComponent, bytesPerRow, colorSpace, bitmapInfo);
+    CGColorSpaceRelease(colorSpace);
+    return ctx;
+}
 
 - (instancetype)init
 {
@@ -84,6 +127,10 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         
         _cache = [[NSCache alloc] init];
         _cache.name = label;
+        
+        _contextCache = [[NSCache alloc] init];
+        _contextCache.name = [label stringByAppendingPathExtension:@"Drawing"];
+        _contextCache.countLimit = 10;
         
         _cacheInfo = [NSMutableDictionary dictionary];
         _pendingImageRequestArray = [NSMutableArray array];
@@ -161,13 +208,7 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         }
         
         if (image) {
-            // Deliver update.
-            MMImageRequestResultHandler resultHandler = request.resultHandler;
-            if (resultHandler) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    resultHandler(image, nil);
-                });
-            }
+            [self _finishImageRequest:request withImage:image error:nil];
             
             // Don't return if opportunistic or image is expired. We need to do the request.
             if (!opportunisticCacheReplacement && !info.expired) {
@@ -230,12 +271,7 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
                 [[self _cacheObjectInfoForItem:item] setExpired:expires];
                 
                 // Deliver update.
-                MMImageRequestResultHandler resultHandler = request.resultHandler;
-                if (resultHandler) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        resultHandler(image, nil);
-                    });
-                }
+                [self _finishImageRequest:request withImage:image error:nil];
                 
                 // Don't return if opportunistic or image is expired. We need to do the request.
                 if (!opportunisticDiskReplacement && !expires) {
@@ -272,15 +308,8 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         if (!imagePromised) {
             [self.pendingImageRequestArray removeObject:request];
             
-            MMImageRequestResultHandler resultHandler = request.resultHandler;
-            if (resultHandler) {
-                NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSFeatureUnsupportedError userInfo:nil];
-                NSDictionary *errorDictionary = @{ NSUnderlyingErrorKey : error };
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    resultHandler(nil, errorDictionary);
-                });
-            }
+            NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSFeatureUnsupportedError userInfo:nil];
+            [self _finishImageRequest:request withImage:nil error:error];
         }
     });
 }
@@ -298,13 +327,8 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
             MMImageFormat *format = [self appropiateImageFormatForTargetSize:request.targetSize];
             [self.imageSource imageManager:self cancelRequestWithImageFormat:format forItem:request.item];
             
-            MMImageRequestResultHandler resultHandler = request.resultHandler;
-            if (resultHandler) {
-                NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSUserCancelledError userInfo:nil];
-                NSDictionary *userInfo = @{ NSUnderlyingErrorKey : error };
-                
-                resultHandler(nil, userInfo);
-            }
+            NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSUserCancelledError userInfo:nil];
+            [self _finishImageRequest:request withImage:nil error:error];
         }
     });
 }
@@ -398,22 +422,12 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         }
         
         if (matchingRequests.count > 0) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                for (MMImageRequest *imageRequest in matchingRequests) {
-                    MMImageRequestResultHandler resultHandler = imageRequest.resultHandler;
-                    if (resultHandler) {
-                        resultHandler(image, nil);
-                    }
-                }
-            });
+            [self _batchFinishImageRequests:matchingRequests withImage:image error:nil];
         }
         
         // Write image to disk.
-        CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image.CGImage);
-        BOOL hasAlpha = !(alpha == kCGImageAlphaNone || alpha == kCGImageAlphaNoneSkipFirst || alpha == kCGImageAlphaNoneSkipLast);
-        
         NSData *imageData;
-        if (hasAlpha) {
+        if (MMUIImageContainsAlpha(image)) {
             imageData = UIImagePNGRepresentation(image);
         } else {
             imageData = UIImageJPEGRepresentation(image, 1.0f);
@@ -463,6 +477,9 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
         // Remove all images from cache.
         [self.cacheInfo removeAllObjects];
         [self.cache removeAllObjects];
+        
+        // Clear the context cache.
+        [self.contextCache removeAllObjects];
     });
 }
 
@@ -514,6 +531,130 @@ static NSString *MMImageManagerDomain = @"net.matmartinez.MMImageManager";
             [self cancelRequest:preheatImageRequest];
         }
     });
+}
+
+#pragma mark - Finishing requests.
+
+- (void)_finishImageRequest:(MMImageRequest *)imageRequest withImage:(UIImage *)image error:(NSError *)error
+{
+    BOOL usingImageContext = NO;
+    
+    if (image && imageRequest.drawRect) {
+        CGContextRef ctx = [self _graphicsContextForImage:image];
+        if (ctx != NULL) {
+            UIGraphicsPushContext(ctx);
+            usingImageContext = YES;
+        }
+    }
+    
+    dispatch_block_t handler = [self _handlerForImageRequest:imageRequest image:image error:error];
+    
+    if (usingImageContext) {
+        UIGraphicsPopContext();
+    }
+    
+    if (handler) {
+        dispatch_async(dispatch_get_main_queue(), handler);
+    }
+}
+
+- (dispatch_block_t)_handlerForImageRequest:(MMImageRequest *)imageRequest image:(UIImage *)image error:(NSError *)error
+{
+    MMImageRequestResultHandler resultHandler = imageRequest.resultHandler;
+    if (!resultHandler) {
+        return nil;
+    }
+    
+    NSDictionary *userInfo = nil;
+    if (error) {
+        userInfo = @{ NSUnderlyingErrorKey : error };
+    }
+    
+    MMImageDrawRect drawRect = imageRequest.drawRect;
+    if (image && drawRect) {
+        CGContextRef ctx = UIGraphicsGetCurrentContext();
+        
+        CGRect r = (CGRect){ .size = image.size };
+        
+        if (imageRequest.clearsContextBeforeDrawing) {
+            CGContextClearRect(ctx, r);
+        }
+        
+        drawRect(image, r);
+        
+        CGImageRef contextImage = CGBitmapContextCreateImage(ctx);
+        if (contextImage != NULL) {
+            image = [UIImage imageWithCGImage:contextImage];
+            
+            CGImageRelease(contextImage);
+        }
+    }
+    
+    return ^{
+        resultHandler(image, userInfo);
+    };
+}
+
+- (void)_batchFinishImageRequests:(NSArray *)batch withImage:(UIImage *)image error:(NSError *)error
+{
+    NSMutableArray *handlers = [NSMutableArray arrayWithCapacity:batch.count];
+    BOOL usingImageContext = NO;
+    for (MMImageRequest *imageRequest in batch) {
+        if (image && imageRequest.drawRect) {
+            CGContextRef ctx = [self _graphicsContextForImage:image];
+            if (ctx != NULL) {
+                UIGraphicsPushContext(ctx);
+                usingImageContext = YES;
+            }
+        }
+        
+        dispatch_block_t handler = [self _handlerForImageRequest:imageRequest image:image error:error];
+        if (handler) {
+            [handlers addObject:handler];
+        }
+    }
+    
+    if (usingImageContext) {
+        UIGraphicsPopContext();
+    }
+    
+    if (handlers.count > 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            for (dispatch_block_t handler in handlers) {
+                handler();
+            }
+        });
+    }
+}
+
+- (CGContextRef)_graphicsContextForImage:(UIImage *)image
+{
+    const BOOL opaque = !MMUIImageContainsAlpha(image);
+    const CGFloat scale = image.scale;
+    CGSize size = image.size;
+    size.width *= scale;
+    size.height *= scale;
+    
+    if (size.width < 1) size.width = 1;
+    if (size.height < 1) size.height = 1;
+    
+    NSString *contextIdentifier = [NSString stringWithFormat:@"%f.%f.%d", size.width, size.height, opaque];
+    _MMDrawingContext *context = [_contextCache objectForKey:contextIdentifier];
+    if (!context) {
+        CGContextRef ctx = MMCreateGraphicsContext(size, opaque);
+        
+        CGContextScaleCTM(ctx, scale, scale);
+        CGContextTranslateCTM(ctx, 0, image.size.height);
+        CGContextScaleCTM(ctx, 1.0, -1.0);
+        
+        context = [[_MMDrawingContext alloc] init];
+        context.context = ctx;
+        context.queue = self.queue;
+        
+        [_contextCache setObject:context forKey:contextIdentifier cost:size.width * size.height];
+    }
+    
+    return context.context;
 }
 
 #pragma mark - Accesing disk for images.
