@@ -457,9 +457,12 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
         // Remove from cache.
         _MMImageCacheObjectInfo *info = [self _cacheObjectInfoForItem:item];
         
-        for (MMImageFormat *imageFormat in info.availableImageFormats) {
+        for (MMImageFormat *imageFormat in info.availableImageFormats.copy) {
             NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
-            [self.cache removeObjectForKey:relativePath];
+            
+            if (relativePath) {
+                [self.cache removeObjectForKey:relativePath];
+            }
         }
         
         [self _removeCacheObjectForItem:item];
