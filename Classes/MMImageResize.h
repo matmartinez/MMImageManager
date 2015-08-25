@@ -13,7 +13,7 @@
 /**
  *  Resizes an image with the provided size.
  *
- *  @param data An instance of @c NSData.
+ *  @param maximumImageSize The maximum size to fit the image.
  *
  *  @return An @c UIImage instance.
  */
