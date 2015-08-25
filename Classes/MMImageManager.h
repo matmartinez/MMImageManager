@@ -9,6 +9,7 @@
 #import <UIKit/UIKit.h>
 
 #import "MMImageManagerItem.h"
+#import "MMImageManagerOptions.h"
 #import "MMImageRequest.h"
 #import "MMImageFormat.h"
 
@@ -33,8 +34,10 @@ extern CGSize const MMImageManagerMaximumSize;
 @interface MMImageManager : NSObject
 
 - (instancetype)initWithName:(NSString *)name;
+- (instancetype)initWithName:(NSString *)name options:(MMImageManagerOptions *)options NS_DESIGNATED_INITIALIZER;
 
 @property (readonly, copy, nonatomic) NSString *name;
+@property (readonly, nonatomic) NSUInteger currentDiskUsage;
 
 @property (strong, nonatomic) id <MMImageManagerImageSource> imageSource;
 
@@ -52,14 +55,9 @@ extern CGSize const MMImageManagerMaximumSize;
 - (void)removeAllImagesForItem:(id <MMImageManagerItem>)item;
 - (void)removeAllImages;
 
-@property (assign, nonatomic) NSUInteger diskCapacity;
-@property (readonly, nonatomic) NSUInteger currentDiskUsage;
-
 @end
 
 @interface MMImageManager (CacheControl)
-
-@property (assign, nonatomic) NSTimeInterval automaticCleanupTimeInterval;
 
 - (void)removeImageFormat:(MMImageFormat *)format forItem:(id <MMImageManagerItem>)item scheduledWithDate:(NSDate *)date;
 - (void)removeImagesSinceDate:(NSDate *)date;

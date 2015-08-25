@@ -8,6 +8,7 @@
 
 #import "MMImageManager.h"
 #import "MMImageInflate.h"
+#import "MMImageResize.h"
 #import <CommonCrypto/CommonCrypto.h>
 #import <ImageIO/ImageIO.h>
 #import <sys/xattr.h>
@@ -18,7 +19,7 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 
 @property (copy, nonatomic, readwrite) NSString *name;
 @property (copy, nonatomic) NSString *workingPath;
-@property (assign, nonatomic) CGFloat imageScale;
+@property (copy, nonatomic) MMImageManagerOptions *options;
 
 @property (strong, nonatomic) NSFileManager *fileManager;
 @property (strong, nonatomic) dispatch_queue_t queue;
@@ -32,8 +33,6 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 @property (strong, nonatomic) NSMutableArray *preheatImageRequestArray;
 
 @property (strong, nonatomic, readwrite) NSSet *registeredImageFormats;
-
-@property (assign, nonatomic) NSTimeInterval automaticCleanupTimeInterval;
 
 @end
 
@@ -104,16 +103,21 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
 
 - (instancetype)init
 {
-    return [self initWithName:@"Default"];
+    return [self initWithName:@"Default" options:[MMImageManagerOptions defaultOptions]];
 }
 
 - (instancetype)initWithName:(NSString *)name
 {
+    return [self initWithName:name options:[MMImageManagerOptions defaultOptions]];
+}
+
+- (instancetype)initWithName:(NSString *)name options:(MMImageManagerOptions *)options
+{
     self = [super init];
     if (self) {
         NSString *label = [MMImageManagerDomain stringByAppendingPathExtension:name];
-        
         _name = [name copy];
+        _options = [options copy];
         
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
         _workingPath = [paths.firstObject stringByAppendingPathComponent:label];
@@ -122,8 +126,6 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
         dispatch_sync(_queue, ^{
             _fileManager = [[NSFileManager alloc] init];
         });
-        
-        _imageScale = [UIScreen mainScreen].scale;
         
         _cache = [[NSCache alloc] init];
         _cache.name = label;
@@ -366,13 +368,26 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
     return [self _appropiateImageFormatForTargetSize:targetSize imageFormats:self.registeredImageFormats];
 }
 
-- (void)saveImage:(UIImage *)image imageFormat:(MMImageFormat *)imageFormat forItem:(id<MMImageManagerItem>)item
+- (void)saveImage:(UIImage *)original imageFormat:(MMImageFormat *)imageFormat forItem:(id<MMImageManagerItem>)item
 {
-    if (!image || !item) {
+    if (!original || !item) {
         return;
     }
     
     dispatch_async(self.queue, ^{
+        UIImage *image = original;
+        
+        // Resize if needed.
+        if (self.options.resizesImagesToTargetSize) {
+            const CGSize imageSize = imageFormat.imageSize;
+            const BOOL needsResizing = !CGSizeEqualToSize(imageSize, CGSizeZero) && !CGSizeEqualToSize(imageSize, MMImageManagerMaximumSize);
+            
+            if (needsResizing) {
+                image = [image MM_imageConstrainedToSize:imageSize];
+            }
+        }
+        
+        // Create relative path.
         NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
         
         // Cache the image.
@@ -672,7 +687,7 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
     }
     
     NSData *data = [NSData dataWithContentsOfFile:path];
-    UIImage *image = [UIImage MM_inflatedImageWithData:data scale:self.imageScale];
+    UIImage *image = [UIImage MM_inflatedImageWithData:data scale:self.options.imageScale];
     
     return image;
 }
@@ -842,10 +857,15 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
 
 - (void)_cleanDiskWithCompletionBlock:(void (^)(void))completionBlock
 {
+    NSDate *expirationDate = self.options.expirationDate;
+    if (!expirationDate) {
+        return;
+    }
+    
     dispatch_async(self.queue, ^{
         NSFileManager *fileManager = self.fileManager;
         NSURL *diskCacheURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
-        NSArray *resourceKeys = @[ NSURLIsDirectoryKey, NSURLContentModificationDateKey, NSURLTotalFileAllocatedSizeKey ];
+        NSArray *resourceKeys = @[ NSURLContentModificationDateKey, NSURLTotalFileAllocatedSizeKey ];
         
         // This enumerator prefetches useful properties for our cache files.
         NSDirectoryEnumerator *fileEnumerator = [fileManager enumeratorAtURL:diskCacheURL
@@ -853,7 +873,6 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
                                                                      options:NSDirectoryEnumerationSkipsHiddenFiles
                                                                 errorHandler:NULL];
         
-        NSDate *expirationDate = [NSDate dateWithTimeIntervalSinceNow:-self.automaticCleanupTimeInterval];
         NSMutableDictionary *cacheFiles = [NSMutableDictionary dictionary];
         NSUInteger currentCacheSize = 0;
         
@@ -865,11 +884,6 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
         
         for (NSURL *fileURL in fileEnumerator) {
             NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
-            
-            // Skip directories.
-            if ([resourceValues[NSURLIsDirectoryKey] boolValue]) {
-                continue;
-            }
             
             // Remove files that are older than the expiration date;
             NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
@@ -890,9 +904,10 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
         
         // If our remaining disk cache exceeds a configured maximum size, perform a second
         // size-based cleanup pass.  We delete the oldest files first.
-        if (self.diskCapacity > 0 && currentCacheSize > self.diskCapacity) {
+        NSUInteger diskCapacity = self.options.diskCapacity;
+        if (diskCapacity > 0 && currentCacheSize > diskCapacity) {
             // Target half of our maximum cache size for this cleanup pass.
-            const NSUInteger desiredCacheSize = self.diskCapacity / 2;
+            const NSUInteger desiredCacheSize = diskCapacity / 2;
             
             // Sort the remaining cache files by their last modification time (oldest first).
             NSArray *sortedFiles = [cacheFiles keysSortedByValueWithOptions:NSSortConcurrent
@@ -924,7 +939,7 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
 
 - (NSUInteger)currentDiskUsage
 {
-    NSArray *resourceKeys = @[ NSURLTotalFileAllocatedSizeKey, NSURLIsDirectoryKey ];
+    NSArray *resourceKeys = @[ NSURLTotalFileAllocatedSizeKey ];
     
     NSURL *workingFileURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
     NSDirectoryEnumerator *directoryEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:workingFileURL includingPropertiesForKeys:resourceKeys options:0 errorHandler:NULL];
@@ -935,11 +950,6 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
         NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
         NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
         
-        // Skip directories.
-        if ([resourceValues[NSURLIsDirectoryKey] boolValue]) {
-            continue;
-        }
-        
         // Add up the size.
         if (totalAllocatedSize) {
             currentCacheSize += [totalAllocatedSize unsignedIntegerValue];
@@ -947,6 +957,38 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
     }
     
     return currentCacheSize;
+}
+
+- (void)removeImagesSinceDate:(NSDate *)date
+{
+    dispatch_async(self.queue, ^{
+        NSFileManager *fileManager = self.fileManager;
+        NSURL *diskCacheURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
+        NSArray *resourceKeys = @[ NSURLContentModificationDateKey ];
+        
+        // This enumerator prefetches useful properties for our cache files.
+        NSDirectoryEnumerator *fileEnumerator = [fileManager enumeratorAtURL:diskCacheURL
+                                                  includingPropertiesForKeys:resourceKeys
+                                                                     options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                                errorHandler:NULL];
+        
+        NSMutableArray *URLsToDelete = [NSMutableArray array];
+        
+        for (NSURL *fileURL in fileEnumerator) {
+            NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
+            
+            // Check date.
+            NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
+            
+            if ([modificationDate compare:date] == NSOrderedDescending) {
+                [URLsToDelete addObject:fileURL];
+            }
+        }
+        
+        for (NSURL *fileURL in URLsToDelete) {
+            [fileManager removeItemAtURL:fileURL error:nil];
+        }
+    });
 }
 
 #pragma mark - Expiration.

@@ -17,6 +17,8 @@
 		0943CD211A978CCB00F8B08A /* MMImageRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */; };
 		095BAB681A97A07E000311FB /* UIImageView+MMImageRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */; };
 		09917F891AC9ECED00B4F207 /* MMImageInflate.m in Sources */ = {isa = PBXBuildFile; fileRef = 09917F881AC9ECED00B4F207 /* MMImageInflate.m */; };
+		09D918F31B8296B100B33758 /* MMImageManagerOptions.m in Sources */ = {isa = PBXBuildFile; fileRef = 09D918F21B8296B100B33758 /* MMImageManagerOptions.m */; };
+		09D918F91B829C7B00B33758 /* MMImageResize.m in Sources */ = {isa = PBXBuildFile; fileRef = 09D918F81B829C7B00B33758 /* MMImageResize.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +54,10 @@
 		095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIImageView+MMImageRequest.m"; path = "Classes/UIImageView+MMImageRequest.m"; sourceTree = SOURCE_ROOT; };
 		09917F871AC9ECED00B4F207 /* MMImageInflate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MMImageInflate.h; path = Classes/MMImageInflate.h; sourceTree = SOURCE_ROOT; };
 		09917F881AC9ECED00B4F207 /* MMImageInflate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MMImageInflate.m; path = Classes/MMImageInflate.m; sourceTree = SOURCE_ROOT; };
+		09D918F11B8296B100B33758 /* MMImageManagerOptions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MMImageManagerOptions.h; path = Classes/MMImageManagerOptions.h; sourceTree = SOURCE_ROOT; };
+		09D918F21B8296B100B33758 /* MMImageManagerOptions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MMImageManagerOptions.m; path = Classes/MMImageManagerOptions.m; sourceTree = SOURCE_ROOT; };
+		09D918F71B829C7B00B33758 /* MMImageResize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MMImageResize.h; path = Classes/MMImageResize.h; sourceTree = SOURCE_ROOT; };
+		09D918F81B829C7B00B33758 /* MMImageResize.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MMImageResize.m; path = Classes/MMImageResize.m; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +141,8 @@
 			children = (
 				0943CD1A1A978CCB00F8B08A /* MMImageManager.h */,
 				0943CD1B1A978CCB00F8B08A /* MMImageManager.m */,
+				09D918F11B8296B100B33758 /* MMImageManagerOptions.h */,
+				09D918F21B8296B100B33758 /* MMImageManagerOptions.m */,
 				0943CD1C1A978CCB00F8B08A /* MMImageManagerItem.h */,
 				0943CD181A978CCB00F8B08A /* MMImageFormat.h */,
 				0943CD191A978CCB00F8B08A /* MMImageFormat.m */,
@@ -142,6 +150,8 @@
 				0943CD1E1A978CCB00F8B08A /* MMImageRequest.m */,
 				09917F871AC9ECED00B4F207 /* MMImageInflate.h */,
 				09917F881AC9ECED00B4F207 /* MMImageInflate.m */,
+				09D918F71B829C7B00B33758 /* MMImageResize.h */,
+				09D918F81B829C7B00B33758 /* MMImageResize.m */,
 				095BAB661A97A07E000311FB /* UIImageView+MMImageRequest.h */,
 				095BAB671A97A07E000311FB /* UIImageView+MMImageRequest.m */,
 			);
@@ -252,9 +262,11 @@
 				0943CCFA1A978C1900F8B08A /* ViewController.m in Sources */,
 				0943CCF71A978C1900F8B08A /* AppDelegate.m in Sources */,
 				0943CD201A978CCB00F8B08A /* MMImageManager.m in Sources */,
+				09D918F91B829C7B00B33758 /* MMImageResize.m in Sources */,
 				095BAB681A97A07E000311FB /* UIImageView+MMImageRequest.m in Sources */,
 				0943CCF41A978C1900F8B08A /* main.m in Sources */,
 				09917F891AC9ECED00B4F207 /* MMImageInflate.m in Sources */,
+				09D918F31B8296B100B33758 /* MMImageManagerOptions.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
