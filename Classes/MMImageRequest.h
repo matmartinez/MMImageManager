@@ -20,6 +20,7 @@ typedef void (^MMImageDrawRect)(UIImage *, CGRect);
 
 @property (assign, nonatomic, getter = isSynchronous) BOOL synchronous NS_UNAVAILABLE;
 @property (assign, nonatomic, getter = isOportunistic) BOOL opportunistic;
+@property (assign, nonatomic, getter = isNetworkAccessAllowed) BOOL networkAccessAllowed;
 
 @property (copy, nonatomic) MMImageDrawRect drawRect;
 @property (assign, nonatomic) BOOL clearsContextBeforeDrawing;

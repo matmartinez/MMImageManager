@@ -32,13 +32,14 @@
     request.targetSize = targetSize;
     request.resultHandler = resultHandler;
     request.opportunistic = YES;
+    request.networkAccessAllowed = YES;
     
     return request;
 }
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %p, item: %@, targetSize: %@, opportunistic: %@>", NSStringFromClass([self class]), self, self.item, NSStringFromCGSize(self.targetSize), @(self.isOportunistic)];
+    return [NSString stringWithFormat:@"<%@: %p, item: %@, targetSize: %@, opportunistic: %@, networkAccessAllowed: %@>", NSStringFromClass([self class]), self, self.item, NSStringFromCGSize(self.targetSize), @(self.isOportunistic), @(self.networkAccessAllowed)];
 }
 
 @end

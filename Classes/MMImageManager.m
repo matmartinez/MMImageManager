@@ -282,6 +282,13 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
             }
         }
         
+        // Return early if network is not allowed.
+        if (!request.networkAccessAllowed) {
+            NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSExecutableNotLoadableError userInfo:nil];
+            [self _finishImageRequest:request withImage:image error:error];
+            return;
+        }
+        
         // Check if can skip requesting for the same size.
         BOOL alreadyRequesting = NO;
         NSString *imageManagerUniqueIdentifier = [item imageManagerUniqueIdentifier];
