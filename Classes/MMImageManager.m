@@ -579,7 +579,8 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
     }
     
     if (handler) {
-        dispatch_async(dispatch_get_main_queue(), handler);
+        dispatch_queue_t resultQueue = imageRequest.resultQueue;
+        dispatch_async(resultQueue ?: dispatch_get_main_queue(), handler);
     }
 }
 

@@ -26,5 +26,6 @@ typedef void (^MMImageDrawRect)(UIImage *, CGRect);
 @property (assign, nonatomic) BOOL clearsContextBeforeDrawing;
 
 @property (copy, nonatomic) MMImageRequestResultHandler resultHandler;
+@property (weak, nonatomic) dispatch_queue_t resultQueue;
 
 @end
