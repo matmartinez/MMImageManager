@@ -45,8 +45,10 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 
 @interface _MMDrawingContext : NSObject
 
+- (instancetype)initWithSize:(CGSize)size scale:(CGFloat)scale opaque:(BOOL)opaque NS_DESIGNATED_INITIALIZER;
+
 @property (weak, nonatomic) dispatch_queue_t queue;
-@property (assign, nonatomic) CGContextRef context;
+@property (readonly, nonatomic) CGContextRef context;
 
 @end
 
@@ -65,13 +67,61 @@ CGSize const MMImageManagerMaximumSize = { .width = CGFLOAT_MAX, .height = CGFLO
 
 @implementation _MMDrawingContext
 
+NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
+    size_t width = size.width;
+    size_t height = size.height;
+    size_t bitsPerComponent = 8;
+    size_t bytesPerRow = 4 * width;
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGBitmapInfo bitmapInfo = kCGBitmapByteOrder32Host | (opaque ? kCGImageAlphaNoneSkipFirst : kCGImageAlphaPremultipliedFirst);
+    CGContextRef ctx = CGBitmapContextCreate(NULL, width, height, bitsPerComponent, bytesPerRow, colorSpace, bitmapInfo);
+    CGColorSpaceRelease(colorSpace);
+    return ctx;
+}
+
+- (instancetype)init
+{
+    return [self initWithSize:CGSizeZero scale:1.0f opaque:YES];
+}
+
+- (instancetype)initWithSize:(CGSize)imageSize scale:(CGFloat)scale opaque:(BOOL)opaque
+{
+    if (CGSizeEqualToSize(imageSize, CGSizeZero)) {
+        return nil;
+    }
+    
+    self = [super init];
+    if (self) {
+        CGSize size = imageSize;
+        size.width *= scale;
+        size.height *= scale;
+        
+        if (size.width < 1) size.width = 1;
+        if (size.height < 1) size.height = 1;
+        
+        CGContextRef ctx = MMCreateGraphicsContext(size, opaque);
+        
+        CGContextScaleCTM(ctx, scale, scale);
+        CGContextTranslateCTM(ctx, 0, imageSize.height);
+        CGContextScaleCTM(ctx, 1.0, -1.0);
+        
+        _context = ctx;
+    }
+    return self;
+}
+
 - (void)dealloc
 {
     CGContextRef ctx = _context;
     if (ctx != NULL) {
-        dispatch_async(_queue, ^{
+        dispatch_queue_t queque = _queue;
+        if (queque != nil) {
+            dispatch_async(queque, ^{
+                CGContextRelease(ctx);
+            });
+        } else {
             CGContextRelease(ctx);
-        });
+        }
     }
     _context = nil;
 }
@@ -88,18 +138,6 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     
     return hasAlpha;
 };
-
-NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
-    size_t width = size.width;
-    size_t height = size.height;
-    size_t bitsPerComponent = 8;
-    size_t bytesPerRow = 4 * width;
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGBitmapInfo bitmapInfo = kCGBitmapByteOrder32Host | (opaque ? kCGImageAlphaNoneSkipFirst : kCGImageAlphaPremultipliedFirst);
-    CGContextRef ctx = CGBitmapContextCreate(NULL, width, height, bitsPerComponent, bytesPerRow, colorSpace, bitmapInfo);
-    CGColorSpaceRelease(colorSpace);
-    return ctx;
-}
 
 - (instancetype)init
 {
@@ -657,24 +695,12 @@ NS_INLINE CGContextRef MMCreateGraphicsContext(CGSize size, BOOL opaque) {
 {
     const BOOL opaque = !MMUIImageContainsAlpha(image);
     const CGFloat scale = image.scale;
-    CGSize size = image.size;
-    size.width *= scale;
-    size.height *= scale;
+    const CGSize size = image.size;
     
-    if (size.width < 1) size.width = 1;
-    if (size.height < 1) size.height = 1;
-    
-    NSString *contextIdentifier = [NSString stringWithFormat:@"%f.%f.%d", size.width, size.height, opaque];
+    NSString *contextIdentifier = [NSString stringWithFormat:@"%f.%f.%f.%d", size.width, size.height, scale, opaque];
     _MMDrawingContext *context = [_contextCache objectForKey:contextIdentifier];
     if (!context) {
-        CGContextRef ctx = MMCreateGraphicsContext(size, opaque);
-        
-        CGContextScaleCTM(ctx, scale, scale);
-        CGContextTranslateCTM(ctx, 0, image.size.height);
-        CGContextScaleCTM(ctx, 1.0, -1.0);
-        
-        context = [[_MMDrawingContext alloc] init];
-        context.context = ctx;
+        context = [[_MMDrawingContext alloc] initWithSize:size scale:scale opaque:opaque];
         context.queue = self.queue;
         
         [_contextCache setObject:context forKey:contextIdentifier cost:size.width * size.height];
