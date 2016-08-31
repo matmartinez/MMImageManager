@@ -227,36 +227,36 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     id <MMImageManagerItem> item = request.item;
     
     dispatch_async(self.queue, ^{
-        MMImageFormat *imageFormat = [self appropiateImageFormatForTargetSize:targetSize];
-        NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
-        
-        // Hit the cache for the requested item and size.
-        UIImage *image = [self.cache objectForKey:relativePath];
-        
-        _MMImageCacheObjectInfo *info = [self _cacheObjectInfoForItem:item];
-        
-        // If opportunistic try to hit other sizes.
-        BOOL opportunisticCacheReplacement = NO;
-        if (!image && request.opportunistic) {
-            MMImageFormat *replacementImageFormat = [self _appropiateImageFormatForTargetSize:targetSize imageFormats:info.availableImageFormats];
-            if (replacementImageFormat) {
-                NSString *otherSizeKey = [self _relativePathForItem:item imageFormat:replacementImageFormat];
-                image = [self.cache objectForKey:otherSizeKey];
-                
-                opportunisticCacheReplacement = YES;
-            }
-        }
-        
-        if (image) {
-            [self _finishImageRequest:request withImage:image error:nil];
-            
-            // Don't return if opportunistic or image is expired. We need to do the request.
-            if (!opportunisticCacheReplacement && !info.expired) {
-                return;
-            }
-        }
-        
         @autoreleasepool {
+            MMImageFormat *imageFormat = [self appropiateImageFormatForTargetSize:targetSize];
+            NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
+            
+            // Hit the cache for the requested item and size.
+            UIImage *image = [self.cache objectForKey:relativePath];
+            
+            _MMImageCacheObjectInfo *info = [self _cacheObjectInfoForItem:item];
+            
+            // If opportunistic try to hit other sizes.
+            BOOL opportunisticCacheReplacement = NO;
+            if (!image && request.opportunistic) {
+                MMImageFormat *replacementImageFormat = [self _appropiateImageFormatForTargetSize:targetSize imageFormats:info.availableImageFormats];
+                if (replacementImageFormat) {
+                    NSString *otherSizeKey = [self _relativePathForItem:item imageFormat:replacementImageFormat];
+                    image = [self.cache objectForKey:otherSizeKey];
+                    
+                    opportunisticCacheReplacement = YES;
+                }
+            }
+            
+            if (image) {
+                [self _finishImageRequest:request withImage:image error:nil];
+                
+                // Don't return if opportunistic or image is expired. We need to do the request.
+                if (!opportunisticCacheReplacement && !info.expired) {
+                    return;
+                }
+            }
+            
             NSString *diskRelativePath = relativePath;
             MMImageFormat *diskImageFormat = imageFormat;
             
@@ -318,45 +318,45 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
                     return;
                 }
             }
-        }
-        
-        // Return early if network is not allowed.
-        if (!request.networkAccessAllowed) {
-            NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSExecutableNotLoadableError userInfo:nil];
-            [self _finishImageRequest:request withImage:image error:error];
-            return;
-        }
-        
-        // Check if can skip requesting for the same size.
-        BOOL alreadyRequesting = NO;
-        NSString *imageManagerUniqueIdentifier = [item imageManagerUniqueIdentifier];
-        
-        for (MMImageRequest *otherImageRequest in self.pendingImageRequestArray) {
-            BOOL equalUniqueIdentifier = [[otherImageRequest.item imageManagerUniqueIdentifier] isEqualToString:imageManagerUniqueIdentifier];
-            BOOL equalSize = CGSizeEqualToSize(otherImageRequest.targetSize, targetSize);
             
-            if (equalUniqueIdentifier && equalSize) {
-                alreadyRequesting = YES;
-                break;
+            // Return early if network is not allowed.
+            if (!request.networkAccessAllowed) {
+                NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSExecutableNotLoadableError userInfo:nil];
+                [self _finishImageRequest:request withImage:image error:error];
+                return;
             }
-        }
-        
-        // Add to pending images.
-        [self.pendingImageRequestArray addObject:request];
-        
-        if (alreadyRequesting) {
-            return;
-        }
-        
-        // Image is not existent on disk nor cache, so let's query the image source.
-        BOOL imagePromised = [self.imageSource imageManager:self handleRequestWithImageFormat:imageFormat forItem:item];
-        
-        // If image request is denied, remove object and notify failure.
-        if (!imagePromised) {
-            [self.pendingImageRequestArray removeObject:request];
             
-            NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSFeatureUnsupportedError userInfo:nil];
-            [self _finishImageRequest:request withImage:nil error:error];
+            // Check if can skip requesting for the same size.
+            BOOL alreadyRequesting = NO;
+            NSString *imageManagerUniqueIdentifier = [item imageManagerUniqueIdentifier];
+            
+            for (MMImageRequest *otherImageRequest in self.pendingImageRequestArray) {
+                BOOL equalUniqueIdentifier = [[otherImageRequest.item imageManagerUniqueIdentifier] isEqualToString:imageManagerUniqueIdentifier];
+                BOOL equalSize = CGSizeEqualToSize(otherImageRequest.targetSize, targetSize);
+                
+                if (equalUniqueIdentifier && equalSize) {
+                    alreadyRequesting = YES;
+                    break;
+                }
+            }
+            
+            // Add to pending images.
+            [self.pendingImageRequestArray addObject:request];
+            
+            if (alreadyRequesting) {
+                return;
+            }
+            
+            // Image is not existent on disk nor cache, so let's query the image source.
+            BOOL imagePromised = [self.imageSource imageManager:self handleRequestWithImageFormat:imageFormat forItem:item];
+            
+            // If image request is denied, remove object and notify failure.
+            if (!imagePromised) {
+                [self.pendingImageRequestArray removeObject:request];
+                
+                NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSFeatureUnsupportedError userInfo:nil];
+                [self _finishImageRequest:request withImage:nil error:error];
+            }
         }
     });
 }
@@ -368,15 +368,17 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     }
     
     dispatch_async(self.queue, ^{
-        if ([self.pendingImageRequestArray containsObject:request]) {
-            [self.pendingImageRequestArray removeObject:request];
-            
-            MMImageFormat *format = [self appropiateImageFormatForTargetSize:request.targetSize];
-            [self.imageSource imageManager:self cancelRequestWithImageFormat:format forItem:request.item];
-            
-            NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSUserCancelledError userInfo:nil];
-            [self _finishImageRequest:request withImage:nil error:error];
-        }
+        @autoreleasepool {
+            if ([self.pendingImageRequestArray containsObject:request]) {
+                [self.pendingImageRequestArray removeObject:request];
+                
+                MMImageFormat *format = [self appropiateImageFormatForTargetSize:request.targetSize];
+                [self.imageSource imageManager:self cancelRequestWithImageFormat:format forItem:request.item];
+                
+                NSError *error = [NSError errorWithDomain:MMImageManagerDomain code:NSUserCancelledError userInfo:nil];
+                [self _finishImageRequest:request withImage:nil error:error];
+            }
+        };
     });
 }
 
@@ -387,21 +389,23 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     }
     
     dispatch_async(self.queue, ^{
-        NSString *uniqueIdentifier = [item imageManagerUniqueIdentifier];
-        
-        for (MMImageRequest *imageRequest in self.pendingImageRequestArray) {
-            MMImageFormat *appropiateFormat = [self appropiateImageFormatForTargetSize:imageRequest.targetSize];
+        @autoreleasepool {
+            NSString *uniqueIdentifier = [item imageManagerUniqueIdentifier];
             
-            if ([[imageRequest.item imageManagerUniqueIdentifier] isEqualToString:uniqueIdentifier]) {
-                BOOL shouldCancel = NO;
-                if (!format) {
-                    shouldCancel = YES;
-                } else {
-                    shouldCancel = [appropiateFormat isEqual:format];
-                }
+            for (MMImageRequest *imageRequest in self.pendingImageRequestArray) {
+                MMImageFormat *appropiateFormat = [self appropiateImageFormatForTargetSize:imageRequest.targetSize];
                 
-                if (shouldCancel) {
-                    [self cancelRequest:imageRequest];
+                if ([[imageRequest.item imageManagerUniqueIdentifier] isEqualToString:uniqueIdentifier]) {
+                    BOOL shouldCancel = NO;
+                    if (!format) {
+                        shouldCancel = YES;
+                    } else {
+                        shouldCancel = [appropiateFormat isEqual:format];
+                    }
+                    
+                    if (shouldCancel) {
+                        [self cancelRequest:imageRequest];
+                    }
                 }
             }
         }
@@ -420,88 +424,90 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     }
     
     dispatch_async(self.queue, ^{
-        UIImage *image = original;
-        
-        // Resize if needed.
-        if (self.options.resizesImagesToTargetSize) {
-            const CGSize imageSize = imageFormat.imageSize;
-            const BOOL needsResizing = !CGSizeEqualToSize(imageSize, CGSizeZero) && !CGSizeEqualToSize(imageSize, MMImageManagerMaximumSize);
+        @autoreleasepool {
+            UIImage *image = original;
             
-            if (needsResizing) {
-                image = [image MM_imageConstrainedToSize:imageSize];
+            // Resize if needed.
+            if (self.options.resizesImagesToTargetSize) {
+                const CGSize imageSize = imageFormat.imageSize;
+                const BOOL needsResizing = !CGSizeEqualToSize(imageSize, CGSizeZero) && !CGSizeEqualToSize(imageSize, MMImageManagerMaximumSize);
+                
+                if (needsResizing) {
+                    image = [image MM_imageConstrainedToSize:imageSize];
+                }
             }
-        }
-        
-        // Create relative path.
-        NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
-        
-        // Cache the image.
-        [self _cacheImage:image imageFormat:imageFormat forItem:item relativePath:relativePath];
-        
-        // Deliver pending.
-        NSMutableArray *matchingRequests = nil;
-        NSMutableArray *removedRequests = nil;
-        
-        NSString *uniqueIdentifier = [item imageManagerUniqueIdentifier];
-        
-        for (MMImageRequest *imageRequest in self.pendingImageRequestArray) {
-            if ([[imageRequest.item imageManagerUniqueIdentifier] isEqualToString:uniqueIdentifier]) {
-                BOOL shouldDeliver = NO;
-                BOOL shouldRemove = NO;
-                
-                // If size is the same, deliver.
-                MMImageFormat *requestImageFormat = [self appropiateImageFormatForTargetSize:imageRequest.targetSize]; // Cache this?
-                if (imageFormat == requestImageFormat) {
-                    shouldDeliver = YES;
-                    shouldRemove = YES;
-                }
-                
-                // If opportunistic, give it a shot.
-                if (!shouldDeliver && imageRequest.opportunistic) {
-                    shouldDeliver = YES;
-                }
-                
-                if (shouldDeliver) {
-                    if (!matchingRequests) {
-                        matchingRequests = [NSMutableArray array];
+            
+            // Create relative path.
+            NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
+            
+            // Cache the image.
+            [self _cacheImage:image imageFormat:imageFormat forItem:item relativePath:relativePath];
+            
+            // Deliver pending.
+            NSMutableArray *matchingRequests = nil;
+            NSMutableArray *removedRequests = nil;
+            
+            NSString *uniqueIdentifier = [item imageManagerUniqueIdentifier];
+            
+            for (MMImageRequest *imageRequest in self.pendingImageRequestArray) {
+                if ([[imageRequest.item imageManagerUniqueIdentifier] isEqualToString:uniqueIdentifier]) {
+                    BOOL shouldDeliver = NO;
+                    BOOL shouldRemove = NO;
+                    
+                    // If size is the same, deliver.
+                    MMImageFormat *requestImageFormat = [self appropiateImageFormatForTargetSize:imageRequest.targetSize]; // Cache this?
+                    if (imageFormat == requestImageFormat) {
+                        shouldDeliver = YES;
+                        shouldRemove = YES;
                     }
-                    [matchingRequests addObject:imageRequest];
+                    
+                    // If opportunistic, give it a shot.
+                    if (!shouldDeliver && imageRequest.opportunistic) {
+                        shouldDeliver = YES;
+                    }
+                    
+                    if (shouldDeliver) {
+                        if (!matchingRequests) {
+                            matchingRequests = [NSMutableArray array];
+                        }
+                        [matchingRequests addObject:imageRequest];
+                    }
+                    
+                    if (shouldRemove) {
+                        if (!removedRequests) {
+                            removedRequests = [NSMutableArray array];
+                        }
+                        [removedRequests addObject:imageRequest];
+                    }
+                }
+            }
+            
+            if (removedRequests.count > 0) {
+                [self.pendingImageRequestArray removeObjectsInArray:matchingRequests];
+            }
+            
+            if (matchingRequests.count > 0) {
+                [self _batchFinishImageRequests:matchingRequests withImage:image error:nil];
+            }
+            
+            // Write image to disk.
+            NSData *imageData;
+            if (MMUIImageContainsAlpha(image)) {
+                imageData = UIImagePNGRepresentation(image);
+            } else {
+                imageData = UIImageJPEGRepresentation(image, 1.0f);
+            }
+            
+            if (imageData) {
+                NSString *containerAbsolutePath = [self.workingPath stringByAppendingPathComponent:[self _containerRelativePathForItem:item]];
+                NSString *absolutePath = [self.workingPath stringByAppendingPathComponent:relativePath];
+                
+                if (![self.fileManager fileExistsAtPath:containerAbsolutePath]) {
+                    [self.fileManager createDirectoryAtPath:containerAbsolutePath withIntermediateDirectories:YES attributes:nil error:NULL];
                 }
                 
-                if (shouldRemove) {
-                    if (!removedRequests) {
-                        removedRequests = [NSMutableArray array];
-                    }
-                    [removedRequests addObject:imageRequest];
-                }
+                [self.fileManager createFileAtPath:absolutePath contents:imageData attributes:nil];
             }
-        }
-        
-        if (removedRequests.count > 0) {
-            [self.pendingImageRequestArray removeObjectsInArray:matchingRequests];
-        }
-        
-        if (matchingRequests.count > 0) {
-            [self _batchFinishImageRequests:matchingRequests withImage:image error:nil];
-        }
-        
-        // Write image to disk.
-        NSData *imageData;
-        if (MMUIImageContainsAlpha(image)) {
-            imageData = UIImagePNGRepresentation(image);
-        } else {
-            imageData = UIImageJPEGRepresentation(image, 1.0f);
-        }
-        
-        if (imageData) {
-            NSString *containerAbsolutePath = [self.workingPath stringByAppendingPathComponent:[self _containerRelativePathForItem:item]];
-            NSString *absolutePath = [self.workingPath stringByAppendingPathComponent:relativePath];
-            
-            if (![self.fileManager fileExistsAtPath:containerAbsolutePath]) {
-                [self.fileManager createDirectoryAtPath:containerAbsolutePath withIntermediateDirectories:YES attributes:nil error:NULL];
-            }
-            
-            [self.fileManager createFileAtPath:absolutePath contents:imageData attributes:nil];
         }
     });
 }
@@ -509,40 +515,44 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
 - (void)removeAllImagesForItem:(id<MMImageManagerItem>)item
 {
     dispatch_async(self.queue, ^{
-        // Remove container for item.
-        NSString *containerPath = [self _containerRelativePathForItem:item];
-        
-        [self.fileManager removeItemAtPath:containerPath error:nil];
-        
-        // Remove from cache.
-        _MMImageCacheObjectInfo *info = [self _cacheObjectInfoForItem:item];
-        
-        for (MMImageFormat *imageFormat in info.availableImageFormats.copy) {
-            NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
+        @autoreleasepool {
+            // Remove container for item.
+            NSString *containerPath = [self _containerRelativePathForItem:item];
             
-            if (relativePath) {
-                [self.cache removeObjectForKey:relativePath];
+            [self.fileManager removeItemAtPath:containerPath error:nil];
+            
+            // Remove from cache.
+            _MMImageCacheObjectInfo *info = [self _cacheObjectInfoForItem:item];
+            
+            for (MMImageFormat *imageFormat in info.availableImageFormats.copy) {
+                NSString *relativePath = [self _relativePathForItem:item imageFormat:imageFormat];
+                
+                if (relativePath) {
+                    [self.cache removeObjectForKey:relativePath];
+                }
             }
+            
+            [self _removeCacheObjectForItem:item];
         }
-        
-        [self _removeCacheObjectForItem:item];
     });
 }
 
 - (void)removeAllImages
 {
     dispatch_async(self.queue, ^{
-        // Remove working path.
-        NSString *workingPath = self.workingPath;
-        
-        [self.fileManager removeItemAtPath:workingPath error:nil];
-        
-        // Remove all images from cache.
-        [self.cacheInfo removeAllObjects];
-        [self.cache removeAllObjects];
-        
-        // Clear the context cache.
-        [self.contextCache removeAllObjects];
+        @autoreleasepool {
+            // Remove working path.
+            NSString *workingPath = self.workingPath;
+            
+            [self.fileManager removeItemAtPath:workingPath error:nil];
+            
+            // Remove all images from cache.
+            [self.cacheInfo removeAllObjects];
+            [self.cache removeAllObjects];
+            
+            // Clear the context cache.
+            [self.contextCache removeAllObjects];
+        }
     });
 }
 
@@ -553,11 +563,13 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     }
     
     dispatch_async(self.queue, ^{
-        for (id <MMImageManagerItem> item in items) {
-            MMImageRequest *preheatImageRequest = [MMImageRequest requestForItem:item targetSize:targetSize resultHandler:NULL];
-            
-            [self.preheatImageRequestArray addObject:preheatImageRequest];
-            [self addRequest:preheatImageRequest];
+        @autoreleasepool {
+            for (id <MMImageManagerItem> item in items) {
+                MMImageRequest *preheatImageRequest = [MMImageRequest requestForItem:item targetSize:targetSize resultHandler:NULL];
+                
+                [self.preheatImageRequestArray addObject:preheatImageRequest];
+                [self addRequest:preheatImageRequest];
+            }
         }
     });
 }
@@ -569,29 +581,33 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     }
     
     dispatch_async(self.queue, ^{
-        NSArray *uniqueIdentifiers = [items valueForKey:NSStringFromSelector(@selector(imageManagerUniqueIdentifier))];
-        NSMutableIndexSet *indexesToRemove = [NSMutableIndexSet indexSet];
-        
-        NSUInteger idx = 0;
-        for (MMImageRequest *preheatImageRequest in self.preheatImageRequestArray) {
-            if ([uniqueIdentifiers containsObject:[preheatImageRequest.item imageManagerUniqueIdentifier]]) {
-                if (CGSizeEqualToSize(targetSize, preheatImageRequest.targetSize)) {
-                    [self cancelRequest:preheatImageRequest];
-                    [indexesToRemove addIndex:idx];
+        @autoreleasepool {
+            NSArray *uniqueIdentifiers = [items valueForKey:NSStringFromSelector(@selector(imageManagerUniqueIdentifier))];
+            NSMutableIndexSet *indexesToRemove = [NSMutableIndexSet indexSet];
+            
+            NSUInteger idx = 0;
+            for (MMImageRequest *preheatImageRequest in self.preheatImageRequestArray) {
+                if ([uniqueIdentifiers containsObject:[preheatImageRequest.item imageManagerUniqueIdentifier]]) {
+                    if (CGSizeEqualToSize(targetSize, preheatImageRequest.targetSize)) {
+                        [self cancelRequest:preheatImageRequest];
+                        [indexesToRemove addIndex:idx];
+                    }
                 }
+                idx++;
             }
-            idx++;
+            
+            [self.preheatImageRequestArray removeObjectsAtIndexes:indexesToRemove];
         }
-        
-        [self.preheatImageRequestArray removeObjectsAtIndexes:indexesToRemove];
     });
 }
 
 - (void)stopCachingImagesForAllItems
 {
     dispatch_async(self.queue, ^{
-        for (MMImageRequest *preheatImageRequest in self.preheatImageRequestArray) {
-            [self cancelRequest:preheatImageRequest];
+        @autoreleasepool {
+            for (MMImageRequest *preheatImageRequest in self.preheatImageRequestArray) {
+                [self cancelRequest:preheatImageRequest];
+            }
         }
     });
 }
@@ -634,13 +650,15 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
         userInfo = @{ NSUnderlyingErrorKey : error };
     }
     
-    MMImageDrawRect drawRect = imageRequest.drawRect;
+    const BOOL clearsContextBeforeDrawing = imageRequest.clearsContextBeforeDrawing;
+    const MMImageDrawRect drawRect = imageRequest.drawRect;
+    
     if (image && drawRect) {
         CGContextRef ctx = UIGraphicsGetCurrentContext();
         
         CGRect r = (CGRect){ .size = image.size };
         
-        if (imageRequest.clearsContextBeforeDrawing) {
+        if (clearsContextBeforeDrawing) {
             CGContextClearRect(ctx, r);
         }
         
@@ -897,76 +915,78 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
     }
     
     dispatch_async(self.queue, ^{
-        NSFileManager *fileManager = self.fileManager;
-        NSURL *diskCacheURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
-        NSArray *resourceKeys = @[ NSURLContentModificationDateKey, NSURLTotalFileAllocatedSizeKey ];
-        
-        // This enumerator prefetches useful properties for our cache files.
-        NSDirectoryEnumerator *fileEnumerator = [fileManager enumeratorAtURL:diskCacheURL
-                                                  includingPropertiesForKeys:resourceKeys
-                                                                     options:NSDirectoryEnumerationSkipsHiddenFiles
-                                                                errorHandler:NULL];
-        
-        NSMutableDictionary *cacheFiles = [NSMutableDictionary dictionary];
-        NSUInteger currentCacheSize = 0;
-        
-        // Enumerate all of the files in the cache directory.  This loop has two purposes:
-        //
-        //  1. Removing files that are older than the expiration date.
-        //  2. Storing file attributes for the size-based cleanup pass.
-        NSMutableArray *urlsToDelete = [NSMutableArray array];
-        
-        for (NSURL *fileURL in fileEnumerator) {
-            NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
+        @autoreleasepool {
+            NSFileManager *fileManager = self.fileManager;
+            NSURL *diskCacheURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
+            NSArray *resourceKeys = @[ NSURLContentModificationDateKey, NSURLTotalFileAllocatedSizeKey ];
             
-            // Remove files that are older than the expiration date;
-            NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
-            if ([[modificationDate laterDate:expirationDate] isEqualToDate:expirationDate]) {
-                [urlsToDelete addObject:fileURL];
-                continue;
+            // This enumerator prefetches useful properties for our cache files.
+            NSDirectoryEnumerator *fileEnumerator = [fileManager enumeratorAtURL:diskCacheURL
+                                                      includingPropertiesForKeys:resourceKeys
+                                                                         options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                                    errorHandler:NULL];
+            
+            NSMutableDictionary *cacheFiles = [NSMutableDictionary dictionary];
+            NSUInteger currentCacheSize = 0;
+            
+            // Enumerate all of the files in the cache directory.  This loop has two purposes:
+            //
+            //  1. Removing files that are older than the expiration date.
+            //  2. Storing file attributes for the size-based cleanup pass.
+            NSMutableArray *urlsToDelete = [NSMutableArray array];
+            
+            for (NSURL *fileURL in fileEnumerator) {
+                NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
+                
+                // Remove files that are older than the expiration date;
+                NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
+                if ([[modificationDate laterDate:expirationDate] isEqualToDate:expirationDate]) {
+                    [urlsToDelete addObject:fileURL];
+                    continue;
+                }
+                
+                // Store a reference to this file and account for its total size.
+                NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
+                currentCacheSize += [totalAllocatedSize unsignedIntegerValue];
+                [cacheFiles setObject:resourceValues forKey:fileURL];
             }
             
-            // Store a reference to this file and account for its total size.
-            NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
-            currentCacheSize += [totalAllocatedSize unsignedIntegerValue];
-            [cacheFiles setObject:resourceValues forKey:fileURL];
-        }
-        
-        for (NSURL *fileURL in urlsToDelete) {
-            [self.fileManager removeItemAtURL:fileURL error:nil];
-        }
-        
-        // If our remaining disk cache exceeds a configured maximum size, perform a second
-        // size-based cleanup pass.  We delete the oldest files first.
-        NSUInteger diskCapacity = self.options.diskCapacity;
-        if (diskCapacity > 0 && currentCacheSize > diskCapacity) {
-            // Target half of our maximum cache size for this cleanup pass.
-            const NSUInteger desiredCacheSize = diskCapacity / 2;
+            for (NSURL *fileURL in urlsToDelete) {
+                [self.fileManager removeItemAtURL:fileURL error:nil];
+            }
             
-            // Sort the remaining cache files by their last modification time (oldest first).
-            NSArray *sortedFiles = [cacheFiles keysSortedByValueWithOptions:NSSortConcurrent
-                                                            usingComparator:^NSComparisonResult(id obj1, id obj2) {
-                                                                return [obj1[NSURLContentModificationDateKey] compare:obj2[NSURLContentModificationDateKey]];
-                                                            }];
-            
-            // Delete files until we fall below our desired cache size.
-            for (NSURL *fileURL in sortedFiles) {
-                if ([fileManager removeItemAtURL:fileURL error:nil]) {
-                    NSDictionary *resourceValues = cacheFiles[fileURL];
-                    NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
-                    currentCacheSize -= [totalAllocatedSize unsignedIntegerValue];
-                    
-                    if (currentCacheSize < desiredCacheSize) {
-                        break;
+            // If our remaining disk cache exceeds a configured maximum size, perform a second
+            // size-based cleanup pass.  We delete the oldest files first.
+            NSUInteger diskCapacity = self.options.diskCapacity;
+            if (diskCapacity > 0 && currentCacheSize > diskCapacity) {
+                // Target half of our maximum cache size for this cleanup pass.
+                const NSUInteger desiredCacheSize = diskCapacity / 2;
+                
+                // Sort the remaining cache files by their last modification time (oldest first).
+                NSArray *sortedFiles = [cacheFiles keysSortedByValueWithOptions:NSSortConcurrent
+                                                                usingComparator:^NSComparisonResult(id obj1, id obj2) {
+                                                                    return [obj1[NSURLContentModificationDateKey] compare:obj2[NSURLContentModificationDateKey]];
+                                                                }];
+                
+                // Delete files until we fall below our desired cache size.
+                for (NSURL *fileURL in sortedFiles) {
+                    if ([fileManager removeItemAtURL:fileURL error:nil]) {
+                        NSDictionary *resourceValues = cacheFiles[fileURL];
+                        NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
+                        currentCacheSize -= [totalAllocatedSize unsignedIntegerValue];
+                        
+                        if (currentCacheSize < desiredCacheSize) {
+                            break;
+                        }
                     }
                 }
             }
-        }
-        
-        if (completionBlock) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                completionBlock();
-            });
+            
+            if (completionBlock) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionBlock();
+                });
+            }
         }
     });
 }
@@ -996,31 +1016,33 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
 - (void)removeImagesSinceDate:(NSDate *)date
 {
     dispatch_async(self.queue, ^{
-        NSFileManager *fileManager = self.fileManager;
-        NSURL *diskCacheURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
-        NSArray *resourceKeys = @[ NSURLContentModificationDateKey ];
-        
-        // This enumerator prefetches useful properties for our cache files.
-        NSDirectoryEnumerator *fileEnumerator = [fileManager enumeratorAtURL:diskCacheURL
-                                                  includingPropertiesForKeys:resourceKeys
-                                                                     options:NSDirectoryEnumerationSkipsHiddenFiles
-                                                                errorHandler:NULL];
-        
-        NSMutableArray *URLsToDelete = [NSMutableArray array];
-        
-        for (NSURL *fileURL in fileEnumerator) {
-            NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
+        @autoreleasepool {
+            NSFileManager *fileManager = self.fileManager;
+            NSURL *diskCacheURL = [NSURL fileURLWithPath:self.workingPath isDirectory:YES];
+            NSArray *resourceKeys = @[ NSURLContentModificationDateKey ];
             
-            // Check date.
-            NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
+            // This enumerator prefetches useful properties for our cache files.
+            NSDirectoryEnumerator *fileEnumerator = [fileManager enumeratorAtURL:diskCacheURL
+                                                      includingPropertiesForKeys:resourceKeys
+                                                                         options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                                    errorHandler:NULL];
             
-            if ([modificationDate compare:date] == NSOrderedDescending) {
-                [URLsToDelete addObject:fileURL];
+            NSMutableArray *URLsToDelete = [NSMutableArray array];
+            
+            for (NSURL *fileURL in fileEnumerator) {
+                NSDictionary *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:NULL];
+                
+                // Check date.
+                NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
+                
+                if ([modificationDate compare:date] == NSOrderedDescending) {
+                    [URLsToDelete addObject:fileURL];
+                }
             }
-        }
-        
-        for (NSURL *fileURL in URLsToDelete) {
-            [fileManager removeItemAtURL:fileURL error:nil];
+            
+            for (NSURL *fileURL in URLsToDelete) {
+                [fileManager removeItemAtURL:fileURL error:nil];
+            }
         }
     });
 }
@@ -1032,14 +1054,16 @@ static NSString * MMExpirationExtendedAttribute = @"expires";
 - (void)removeImageFormat:(MMImageFormat *)format forItem:(id<MMImageManagerItem>)item scheduledWithDate:(NSDate *)date
 {
     dispatch_async(self.queue, ^{
-        NSString *relativePath = [self _relativePathForItem:item imageFormat:format];
-        NSString *path = [self.workingPath stringByAppendingPathComponent:relativePath];
-        
-        const char *filePath = [path fileSystemRepresentation];
-        const char *name = [MMImageManagerDomain stringByAppendingPathExtension:MMExpirationExtendedAttribute].UTF8String;
-        const char *value = [NSNumber numberWithInt:[date timeIntervalSince1970]].stringValue.UTF8String;
-        
-        setxattr(filePath, name, value, strlen(value), 0, 0);
+        @autoreleasepool {
+            NSString *relativePath = [self _relativePathForItem:item imageFormat:format];
+            NSString *path = [self.workingPath stringByAppendingPathComponent:relativePath];
+            
+            const char *filePath = [path fileSystemRepresentation];
+            const char *name = [MMImageManagerDomain stringByAppendingPathExtension:MMExpirationExtendedAttribute].UTF8String;
+            const char *value = [NSNumber numberWithInt:[date timeIntervalSince1970]].stringValue.UTF8String;
+            
+            setxattr(filePath, name, value, strlen(value), 0, 0);
+        }
     });
 }
 
