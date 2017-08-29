@@ -847,7 +847,8 @@ NS_INLINE BOOL MMUIImageContainsAlpha(UIImage *image){
             }
         }
     }
-    return closestImageFormat;
+    
+    return closestImageFormat ?: imageFormats.anyObject;
 }
 
 - (MMImageFormat *)_imageFormatWithName:(NSString *)name
